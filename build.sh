@@ -9,7 +9,9 @@ SCRIPT_ROOT_DIR=`pwd`
 echo "Cleaning up old dirs"
 #rm -rf $SCRIPT_ROOT_DIR/install
 #rm -rf $SCRIPT_ROOT_DIR/build
-rm -rf $SCRIPT_ROOT_DIR/framework
+rm -rf $SCRIPT_ROOT_DIR/framework/include
+rm -rf $SCRIPT_ROOT_DIR/framework/lua
+rm -rf $SCRIPT_ROOT_DIR/framework/lib
 
 export INSTALL_DIR=$SCRIPT_ROOT_DIR/install
 
@@ -23,13 +25,15 @@ cd distro/exe/luajit-rocks/luajit-2.1
 ISDKP=$(xcrun --sdk iphonesimulator --show-sdk-path)
 ICC=$(xcrun --sdk iphonesimulator --find clang)
 #ISDKF="-arch x86_64 -isysroot $ISDKP"
-ARCH=i386
+#ARCH=i386
+ARCH=x86_64
 ISDKF="-arch $ARCH -mios-simulator-version-min=8.1 -isysroot $ISDKP"
 #make HOST_CC="clang -m32 -arch i386" CROSS="$(dirname $ICC)/" \
 #       TARGET_FLAGS="$ISDKF" TARGET_SYS=iOS
 
 #(make HOST_CC="clang -m32 -arch x86_64" CROSS="$(dirname $ICC)/" \
-(make HOST_CC="clang -m32 -arch $ARCH" CROSS="$(dirname $ICC)/" \
+#(make HOST_CC="clang -m32 -arch $ARCH" CROSS="$(dirname $ICC)/" \
+(make HOST_CC="clang -arch $ARCH" CROSS="$(dirname $ICC)/" \
   TARGET_FLAGS="$ISDKF" TARGET_SYS=iOS) || exit 1
 
 
@@ -49,7 +53,8 @@ IPHONE_SDKVERSION=`xcodebuild -showsdks | grep iphoneos | egrep "[[:digit:]]+\.[
 ARM_DEV_CMD="xcrun --sdk iphoneos"
 SIM_DEV_CMD="xcrun --sdk iphonesimulator"
 #EXTRA_FLAGS="-miphoneos-version-min=6.0 -fembed-bitcode"
-EXTRA_FLAGS="-miphoneos-version-min=6.0"
+#EXTRA_FLAGS="-miphoneos-version-min=6.0"
+EXTRA_FLAGS="-miphoneos-version-min=8.1"
 
 
 
@@ -66,7 +71,7 @@ EXTRA_FLAGS="-miphoneos-version-min=6.0"
 #XCPATH=`dirname $XCRANLIB`
 #export PATH="$XCPATH:$PATH"
 
-export ASM_DEFINES="--sdk iphonesimulator clang -arch -miphoneos-version-min=6.0"
+#export ASM_DEFINES="--sdk iphonesimulator clang -arch -miphoneos-version-min=6.0"
 
 configure_exports() {
   if [[ $1 = arm* ]]; then
@@ -113,7 +118,8 @@ do_cmake_config() {
   #  -DLUAJIT_SYSTEM_BUILDVM="$SCRIPT_ROOT_DIR/distro/exe/luajit-rocks/luajit-2.1/src/host/buildvm" \
   #-DLUAJIT_CPU_SSE2=OFF -DLUAJIT_ENABLE_LUA52COMPAT=OFF \
   #configure_exports x86_64
-  configure_exports i386
+  #iconfigure_exports i386
+  configure_exports $ARCH
   echo "-----------HERE--------------"
   echo $CC
   SROOT=`$DEV_CMD --show-sdk-path`
@@ -149,6 +155,7 @@ do_cmake_config() {
 #generate_arch x86_64
 
 
+configure_exports $ARCH
 
 
 cd $SCRIPT_ROOT_DIR
@@ -230,11 +237,13 @@ extract_recombine() {
   extract_archive THNN_static
   ar -qc libtorch-1.a luajit/*.o TH_static/*.o luaT_static/*.o image/*.o jpeg/*.o nnx/*.o \
     png/*.o ppm/*.o sys/*.o threads/*.o torch/*.o THNN_static/*.o
+  cp libtorch-1.a libtorch.a
   cd $SCRIPT_DIR
 }
 
 extract_recombine
 
+rm -rf $SCRIPT_DIR/Torch.framework
 
 echo "creating framework"
 mkdir -p $SCRIPT_DIR/Torch.framework/Versions/A/Headers
