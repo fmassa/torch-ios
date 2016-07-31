@@ -73,12 +73,54 @@
   }
 }
 
+int setLuaPath(lua_State* L, NSString* path )
+{
+    lua_getglobal( L, "package" );
+    lua_getfield( L, -1, "path" ); // get field "path" from table at top of stack (-1)
+    NSString * cur_path = [NSString stringWithUTF8String:lua_tostring( L, -1 )]; // grab path string from top of stack
+    cur_path = [cur_path stringByAppendingString:@";"]; // do your path magic here
+    cur_path = [cur_path stringByAppendingString:path];
+    cur_path = [cur_path stringByAppendingString:@"/?.lua"];
+    lua_pop( L, 1 ); // get rid of the string on the stack we just pushed on line 5
+    lua_pushstring( L, [cur_path UTF8String]); // push the new one
+    lua_setfield( L, -2, "path" ); // set the field "path" in table at -2 with value at top of stack
+    lua_pop( L, 1 ); // get rid of package table from top of stack
+    return 0; // all done!
+}
+
+static const luaL_reg lualibs[] =
+{
+    { "base",       luaopen_base },
+    { NULL,         NULL }
+};
+
+// function to open up all the Lua libraries you declared above
+static lua_State* openlualibs(lua_State *l)
+{
+    luaL_openlibs(l);
+    const luaL_reg *lib;
+    for (lib = lualibs; lib->func != NULL; lib++)
+    {
+        lib->func(l);
+        lua_settop(l, 0);
+    }
+    return l;
+}
+
+
 - (void)initialize
 {
   // initialize Lua stack
-  lua_executable_dir("./lua");
-  L = lua_open();
-  luaL_openlibs(L);
+  //lua_executable_dir("./lua");
+  //L = lua_open();
+  L = luaL_newstate();
+  //NSString *luaPath = [[NSBundle mainBundle] pathForResource:@"./" ofType:@"lua"];
+  //setLuaPath(L, [luaPath stringByDeletingLastPathComponent]);
+  //setLuaPath(L, @"./lua");// /torch/init.lua
+  
+  openlualibs(L);
+    
+  //luaL_openlibs(L);
   
   [self addLuaPackagePathForBundlePath:[[NSBundle mainBundle] resourcePath] subdirectory:nil];
   NSString *frameworkResourcesPath = [self bundleResourcesPathForFrameworkName:@"Torch.framework"];
@@ -92,8 +134,8 @@
   [self requireFrameworkPackage:@"dok" frameworkResourcesPath:frameworkResourcesPath];
     
   // load nn
-  luaopen_libnn(L);
-  [self requireFrameworkPackage:@"nn" frameworkResourcesPath:frameworkResourcesPath];
+  //luaopen_libnn(L);
+  //[self requireFrameworkPackage:@"nn" frameworkResourcesPath:frameworkResourcesPath];
 
   // load nnx
   luaopen_libnnx(L);
